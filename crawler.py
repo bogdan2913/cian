@@ -1,0 +1,53 @@
+import random
+import time
+
+from config import MAX_PAGES_PER_SESSION
+from fetcher import fetch_html, collect_offers
+from proxy import rotate_ip
+from logger import logger
+
+
+def collect_all_offers(proxy_url, base_url):
+    # Проходит страницы выдачи и возвращает список «сырых» объявлений (с дедупом
+    # по cianId). Каждое объявление уже содержит все поля — карточки не нужны.
+    sep       = "&" if "?" in base_url else "?"
+    seen      = set()
+    all_offers = []
+
+    for page_num in range(1, MAX_PAGES_PER_SESSION + 1):
+        url = base_url if page_num == 1 else f"{base_url}{sep}p={page_num}"
+
+        html = None
+        for attempt in range(1, 4):
+            html, _ = fetch_html(url, proxy_url)
+            if html:
+                break
+            logger.warning(f"Стр. {page_num}: попытка {attempt}/3 не удалась, ждём...")
+            time.sleep(10 * attempt)
+        if not html:
+            logger.error(f"Стр. {page_num}: не удалось загрузить — ротация IP")
+            rotate_ip()
+            time.sleep(60)
+            html, _ = fetch_html(url, proxy_url)
+        if not html:
+            logger.error(f"Стр. {page_num}: не удалось даже после ротации, выходим")
+            break
+
+        offers, total = collect_offers(html)
+        if not offers:
+            logger.info(f"Стр. {page_num}: объявлений нет, выходим")
+            break
+
+        new = [o for o in offers if str(o.get("cianId") or o.get("id")) not in seen]
+        seen.update(str(o.get("cianId") or o.get("id")) for o in new)
+        all_offers.extend(new)
+        logger.info(f"Стр. {page_num}: +{len(new)} новых (итого: {len(all_offers)} / всего в выдаче: {total})")
+
+        # Дошли до конца выдачи раньше лимита страниц
+        if total is not None and len(all_offers) >= total:
+            logger.info("Собрана вся выдача под-запроса")
+            break
+
+        time.sleep(random.uniform(1.5, 3.0))
+
+    return all_offers

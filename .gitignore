@@ -1,0 +1,20 @@
+# Секреты
+.env
+
+# Окружение
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Логи
+*.log
+logs/
+
+# Системное
+.DS_Store
+.idea/
+.vscode/
+*.swp
