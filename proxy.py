@@ -23,11 +23,20 @@ def get_proxy_url():
 
 
 def _get_current_ip(proxy_url):
-    try:
-        r = requests.get("https://api.ipify.org", proxies={"http": proxy_url, "https": proxy_url}, timeout=10)
-        return r.text.strip()
-    except Exception:
-        return "неизвестен"
+    # Чисто информационная проверка для лога. Сразу после ротации мобильный прокси
+    # пару секунд поднимает новый канал, поэтому делаем несколько попыток с паузой
+    # и запасным эндпоинтом, прежде чем сдаться.
+    proxies = {"http": proxy_url, "https": proxy_url}
+    for attempt in range(3):
+        for endpoint in ("https://api.ipify.org", "https://ifconfig.me/ip"):
+            try:
+                r = requests.get(endpoint, proxies=proxies, timeout=15)
+                if r.status_code == 200 and r.text.strip():
+                    return r.text.strip()
+            except Exception:
+                pass
+        time.sleep(2)
+    return "неизвестен"
 
 
 def rotate_ip():
@@ -41,7 +50,7 @@ def rotate_ip():
         r = requests.get(PROXY_ROTATE_URL, timeout=10)
         if r.status_code == 200:
             _last_rotate = time.time()
-            time.sleep(3)  # ждём пока IP реально сменится
+            time.sleep(5)  # ждём пока мобильный прокси поднимет новый канал
             proxy_url = get_proxy_url()
             new_ip = _get_current_ip(proxy_url) if proxy_url else "нет прокси"
             logger.info(f"Ротация IP успешна — новый IP: {new_ip}")

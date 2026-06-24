@@ -10,9 +10,10 @@ from logger import logger
 def collect_all_offers(proxy_url, base_url):
     # Проходит страницы выдачи и возвращает список «сырых» объявлений (с дедупом
     # по cianId). Каждое объявление уже содержит все поля — карточки не нужны.
-    sep       = "&" if "?" in base_url else "?"
-    seen      = set()
+    sep        = "&" if "?" in base_url else "?"
+    seen       = set()
     all_offers = []
+    empty_runs = 0  # страниц подряд без новых объявлений
 
     for page_num in range(1, MAX_PAGES_PER_SESSION + 1):
         url = base_url if page_num == 1 else f"{base_url}{sep}p={page_num}"
@@ -43,10 +44,16 @@ def collect_all_offers(proxy_url, base_url):
         all_offers.extend(new)
         logger.info(f"Стр. {page_num}: +{len(new)} новых (итого: {len(all_offers)} / всего в выдаче: {total})")
 
-        # Дошли до конца выдачи раньше лимита страниц
-        if total is not None and len(all_offers) >= total:
-            logger.info("Собрана вся выдача под-запроса")
-            break
+        # Циан после реального конца выдачи отдаёт последнюю страницу по кругу —
+        # это видно как «+0 новых». Две такие страницы подряд = выдача кончилась,
+        # дальше нет смысла листать до 54-й (экономим запросы и снижаем риск блока).
+        if not new:
+            empty_runs += 1
+            if empty_runs >= 2:
+                logger.info("Конец выдачи под-запроса (страницы без новых)")
+                break
+        else:
+            empty_runs = 0
 
         time.sleep(random.uniform(1.5, 3.0))
 
