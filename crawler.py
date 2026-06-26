@@ -7,15 +7,17 @@ from proxy import rotate_ip
 from logger import logger
 
 
-def collect_all_offers(proxy_url, base_url):
+def collect_all_offers(proxy_url, base_url, max_pages=None):
     # Проходит страницы выдачи и возвращает список «сырых» объявлений (с дедупом
     # по cianId). Каждое объявление уже содержит все поля — карточки не нужны.
+    # max_pages ограничивает число страниц (для срезов выборки).
     sep        = "&" if "?" in base_url else "?"
     seen       = set()
     all_offers = []
     empty_runs = 0  # страниц подряд без новых объявлений
+    limit      = min(max_pages, MAX_PAGES_PER_SESSION) if max_pages else MAX_PAGES_PER_SESSION
 
-    for page_num in range(1, MAX_PAGES_PER_SESSION + 1):
+    for page_num in range(1, limit + 1):
         url = base_url if page_num == 1 else f"{base_url}{sep}p={page_num}"
 
         html = None

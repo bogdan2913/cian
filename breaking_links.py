@@ -13,11 +13,11 @@ _PRICE_BREAKPOINTS = [
 ]
 
 
-def _base_url(region):
-    # Вторичка + новостройки, продажа, только квартиры (object_type[0]=1)
+def _base_url(region, object_type=1):
+    # Продажа квартир. object_type: 1 = вторичка, 2 = новостройка (первичка).
     return (
         "https://www.cian.ru/cat.php?"
-        f"deal_type=sale&engine_version=2&offer_type=flat&object_type%5B0%5D=1&region={region}"
+        f"deal_type=sale&engine_version=2&offer_type=flat&object_type%5B0%5D={object_type}&region={region}"
     )
 
 
@@ -27,10 +27,11 @@ def _fmt(v):
     return str(v)
 
 
-def build_city_urls(city, region, breakpoints=None):
+def build_city_urls(city, region, breakpoints=None, object_type=1):
     # Возвращает {label: url} с разбивкой по ценовым диапазонам.
+    # object_type: 1 = вторичка, 2 = новостройка.
     points = breakpoints or _PRICE_BREAKPOINTS
-    base   = _base_url(region)
+    base   = _base_url(region, object_type)
     result = {}
     for frm, to in zip([0] + points, points + [0]):
         parts = []
